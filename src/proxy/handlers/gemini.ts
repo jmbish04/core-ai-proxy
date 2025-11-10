@@ -1,0 +1,2 @@
+// Gemini handler
+export default {}
