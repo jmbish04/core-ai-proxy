@@ -1,2 +1,32 @@
-!DOCTYPE html
-htmlheadtitleAgents Preview/title/headbodyh1AGENTS.md Preview/h1/body/html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AGENTS.md Preview - core-ai-proxy</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>AGENTS.md Preview</h1>
+    <div id="preview" class="glass">
+      <p>Loading preview...</p>
+    </div>
+  </div>
+  <script src="/client.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (id) {
+      fetch(`/api/agents/preview/${id}`)
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('preview').innerHTML = `
+            <pre><code>${data.agents_md}</code></pre>
+            <p>Sources: ${data.sources.join(', ')}</p>
+          `;
+        });
+    }
+  </script>
+</body>
+</html>
