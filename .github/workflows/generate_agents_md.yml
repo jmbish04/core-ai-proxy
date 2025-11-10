@@ -1,0 +1,12 @@
+name: Generate AGENTS.md
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder
+        run: echo "TODO: Implement generation step."
