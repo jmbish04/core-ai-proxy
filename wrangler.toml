@@ -42,3 +42,9 @@ CLOUDFLARE_DOCS_MCP_URL = "https://mcp.cloudflare.com/tools/cloudflare-docs"
 # AI Binding for Workers AI
 [ai]
 binding = "AI"
+
+# KV namespace for settings storage
+[[kv_namespaces]]
+binding = "SETTINGS_KV"
+id = "placeholder-kv-id"
+preview_id = "placeholder-preview-kv-id"

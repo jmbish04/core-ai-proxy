@@ -5,6 +5,7 @@ import { createApp } from './router';
 import { createApiRouter } from './api';
 import { createMcpRouter } from './mcp';
 import { createA2aRouter } from './a2a';
+import { createSandboxRouter } from './sandbox';
 import { WebSocketDO } from './websocket';
 import { createRpcServer } from './rpc';
 import { runAllTests } from './health/runner';
@@ -34,6 +35,11 @@ export default {
     if (url.pathname.startsWith('/a2a')) {
       const a2aApp = createA2aRouter();
       return a2aApp.fetch(request, env, ctx);
+    }
+
+    if (url.pathname.startsWith('/sandbox')) {
+      const sandboxApp = createSandboxRouter();
+      return sandboxApp.fetch(request, env, ctx);
     }
 
     // WebSocket upgrade

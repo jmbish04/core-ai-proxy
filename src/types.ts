@@ -13,6 +13,7 @@ export interface Env {
   AI: Ai;
   ASSETS: Fetcher;
   WEBSOCKET_DO: DurableObjectNamespace;
+  SETTINGS_KV: KVNamespace;
 
   // API Keys
   OPENAI_API_KEY: string;
