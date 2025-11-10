@@ -1,0 +1,2 @@
+// OpenAI handler
+export default {}
