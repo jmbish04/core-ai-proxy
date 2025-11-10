@@ -1,0 +1,50 @@
+name = "core-ai-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Asset binding for the frontend
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# D1 database
+[[d1_databases]]
+binding = "DB"
+database_name = "agents_db"
+database_id = "placeholder-db-id"
+preview_database_id = "placeholder-preview-db-id"
+
+# WebSocket Durable Object
+[[durable_objects.bindings]]
+name = "WEBSOCKET_DO"
+class_name = "WebSocketDO"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["WebSocketDO"]
+
+# Scheduled trigger for running health tests
+[triggers]
+crons = ["*/15 * * * *"]
+
+# Environment variables for keys and proxied MCP tools
+[vars]
+# Note: In production, use secrets: wrangler secret put KEY_NAME
+OPENAI_API_KEY = "sk-placeholder"
+ANTHROPIC_API_KEY = "sk-ant-placeholder"
+GOOGLE_API_KEY = "placeholder"
+OLLAMA_BASE_URL = "http://localhost:11434"
+
+# URLs for proxied MCP tools
+CLOUDFLARE_DOCS_MCP_URL = "https://mcp.cloudflare.com/tools/cloudflare-docs"
+
+# AI Binding for Workers AI
+[ai]
+binding = "AI"
+
+# KV namespace for settings storage
+[[kv_namespaces]]
+binding = "SETTINGS_KV"
+id = "5f9f27bac1504404af87bd131621ac44"
+preview_id = "d94b2e8c4a6549938b01cae575ad1962"

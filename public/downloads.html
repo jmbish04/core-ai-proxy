@@ -1,2 +1,31 @@
-!DOCTYPE html
-htmlheadtitleDownloads/title/headbodyh1Client Downloads/h1/body/html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Client Code - core-ai-proxy</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Client Code Snippets</h1>
+    <div class="glass">
+      <h2>Python</h2>
+      <pre><code>from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://core-ai-proxy.workers.dev/api/v1",
+    api_key="your-key"
+)
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.choices[0].message.content)</code></pre>
+      <button class="btn" onclick="copyToClipboard(document.querySelector('code').textContent)">Copy</button>
+    </div>
+  </div>
+  <script src="/client.js"></script>
+</body>
+</html>
