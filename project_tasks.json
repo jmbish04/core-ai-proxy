@@ -1,1 +1,225 @@
-[{"phase":1,"phase_name":"Project Scaffolding & Core Dependencies","description":"Initialize the project, configure wrangler, and set up the basic Hono router.","tasks":[{"task_name":"Initialize Project","description":"Run `pnpm init`, install Hono, TypeScript, Zod, and Wrangler."},{"task_name":"Configure `wrangler.toml`","description":"Set up the main worker entry, `compatibility_date`, and placeholders for D1, DO, and ASSETS bindings."},{"task_name":"Create Basic Hono Router","description":"Implement `src/index.ts` and `src/router.ts` with a simple `/` endpoint."},{"task_name":"Configure `tsconfig.json`","description":"Set up strict TypeScript with module resolution for Cloudflare Workers."}]},{"phase":2,"phase_name":"Database & ORM Setup","description":"Configure D1, Drizzle, and Kysely per the hybrid ORM policy.","tasks":[{"task_name":"Create D1 Database","description":"Run `wrangler d1 create agents_db` and add the binding to `wrangler.toml`."},{"task_name":"Define Drizzle Schema"
+
+[
+  {
+    "phase": 1,
+    "phase_name": "Project Scaffolding & Core Dependencies",
+    "description": "Initialize the project, configure wrangler, and set up the basic Hono router.",
+    "tasks": [
+      {
+        "task_name": "Initialize Project",
+        "description": "Run `pnpm init`, install Hono, TypeScript, Zod, and Wrangler."
+      },
+      {
+        "task_name": "Configure `wrangler.toml`",
+        "description": "Set up the main worker entry, `compatibility_date`, and placeholders for D1, DO, and ASSETS bindings."
+      },
+      {
+        "task_name": "Create Basic Hono Router",
+        "description": "Implement `src/index.ts` and `src/router.ts` with a simple `/` endpoint."
+      },
+      {
+        "task_name": "Configure `tsconfig.json`",
+        "description": "Set up strict TypeScript with module resolution for Cloudflare Workers."
+      }
+    ]
+  },
+  {
+    "phase": 2,
+    "phase_name": "Database & ORM Setup",
+    "description": "Configure D1, Drizzle, and Kysely per the hybrid ORM policy.",
+    "tasks": [
+      {
+        "task_name": "Create D1 Database",
+        "description": "Run `wrangler d1 create agents_db` and add the binding to `wrangler.toml`."
+      },
+      {
+        "task_name": "Define Drizzle Schema",
+        "description": "Create `src/db/schema.ts` with `test_definitions`, `test_runs`, and `agent_generations` tables."
+      },
+      {
+        "task_name": "Configure Drizzle-Kit",
+        "description": "Create `drizzle.config.ts` pointing to the D1 binding."
+      },
+      {
+        "task_name": "Generate Initial Migration",
+        "description": "Run `pnpm drizzle-kit generate` to create the `migrations/0000_init.sql` file."
+      },
+      {
+        "task_name": "Create Hybrid DB Client",
+        "description": "Create `src/db/client.ts` and `src/db/types.ts` to initialize both Drizzle and Kysely from the `env.DB` binding."
+      }
+    ]
+  },
+  {
+    "phase": 3,
+    "phase_name": "Universal AI Proxy (Core Providers)",
+    "description": "Build the core `/api/v1/chat/completions` endpoint and adapters for major providers.",
+    "tasks": [
+      {
+        "task_name": "Create Proxy Router",
+        "description": "Add the `/api/v1/chat/completions` route in `src/api.ts`."
+      },
+      {
+        "task_name": "Build OpenAI Handler",
+        "description": "Create `src/proxy/handlers/openai.ts` using the `openai` SDK (pass-through)."
+      },
+      {
+        "task_name": "Build Anthropic Handler",
+        "description": "Create `src/proxy/handlers/anthropic.ts` using the `@anthropic-ai/sdk`, normalizing messages and tool calls."
+      },
+      {
+        "task_name": "Build Gemini Handler",
+        "description": "Create `src/proxy/handlers/gemini.ts` using `@google/generative-ai`, normalizing messages and tool calls."
+      },
+      {
+        "task_name": "Implement Streaming Logic",
+        "description": "Ensure all handlers respect `stream: true` and return a normalized `text/event-stream`."
+      }
+    ]
+  },
+  {
+    "phase": 4,
+    "phase_name": "Workers AI & Ollama Adapters",
+    "description": "Build the custom adapters for Cloudflare Workers AI and Ollama.",
+    "tasks": [
+      {
+        "task_name": "Build Workers AI Handler",
+        "description": "Create `src/proxy/handlers/workers-ai.ts`. This must map `@cf` models to their schemas and normalize I/O."
+      },
+      {
+        "task_name": "Implement Structured Output Wrapper",
+        "description": "Add logic to the Workers AI handler to force JSON output (for tool-use) when a model doesn't support it natively."
+      },
+      {
+        "task_name": "Build Ollama Handler",
+        "description": "Create `src/proxy/handlers/ollama.ts` as a simple `fetch` client to `env.OLLAMA_BASE_URL`."
+      }
+    ]
+  },
+  {
+    "phase": 5,
+    "phase_name": "Health & Testing Subsystem",
+    "description": "Build the D1-backed health and test-running endpoints.",
+    "tasks": [
+      {
+        "task_name": "Create Test Definitions",
+        "description": "Implement `src/health/definitions.ts` with a static list of tests (e.g., call OpenAI, call Workers AI)."
+      },
+      {
+        "task_name": "Build Test Runner Logic",
+        "description": "Implement `src/health/runner.ts` to execute tests and write results to D1 using the Kysely client."
+      },
+      {
+        "task_name": "Implement Health API Endpoints",
+        "description": "Create `/api/health`, `/api/tests/defs`, `/api/tests/run`, and `/api/tests/session/:id` in `src/api.ts`."
+      },
+      {
+        "task_name": "Add Cron Trigger",
+        "description": "Add `[triggers]` to `wrangler.toml` to call the test runner on a schedule."
+      }
+    ]
+  },
+  {
+    "phase": 6,
+    "phase_name": "Frontend Development",
+    "description": "Build all static HTML/CSS/JS files in the `/public` directory.",
+    "tasks": [
+      {
+        "task_name": "Configure ASSETS Binding",
+        "description": "Create the `/public` directory and configure the `ASSETS` binding in `wrangler.toml`."
+      },
+      {
+        "task_name": "Build Shared Assets",
+        "description": "Create `public/styles.css` (glass/gradient) and `public/client.js`."
+      },
+      {
+        "task_name": "Build `index.html` and `downloads.html`",
+        "description": "Create the static landing and download pages."
+      },
+      {
+        "task_name": "Build `health.html`",
+        "description": "Create the health dashboard, including JS in `client.js` to call the `/api/tests/` endpoints and display results."
+      },
+      {
+        "task_name": "Build `agents-preview.html`",
+        "description": "Create the page for rendering dry-run `AGENTS.md` content."
+      }
+    ]
+  },
+  {
+    "phase": 7,
+    "phase_name": "MCP Hub Architecture",
+    "description": "Build the core MCP federator for routing tool calls.",
+    "tasks": [
+      {
+        "task_name": "Create MCP Router",
+        "description": "Implement `src/mcp.ts` with `GET /mcp/tools` and `POST /mcp/execute` endpoints."
+      },
+      {
+        "task_name": "Implement Tool Registry",
+        "description": "Create `src/mcp/registry.ts` to dynamically import all tool definitions from `src/mcp/tools/`."
+      },
+      {
+        "task_name": "Implement MCP Executor",
+        "description": "Create `src/mcp/router.ts` to handle the `execute` logic, distinguishing between `local` and `proxied` tools."
+      }
+    ]
+  },
+  {
+    "phase": 8,
+    "phase_name": "Hosted & Proxied MCP Tools",
+    "description": "Implement the first local and proxied tools for the MCP Hub.",
+    "tasks": [
+      {
+        "task_name": "Implement (Local) `agents-md-generator`",
+        "description": "Create `src/mcp/tools/local/agents-md-generator.ts`. This requires `src/utils/ai.ts` and `src/utils/mcpClient.ts` to function."
+      },
+      {
+        "task_name": "Implement (Proxied) `cloudflare-docs`",
+        "description": "Create `src/mcp/tools/proxied/cloudflare-docs.ts` and add `CLOUDFLARE_DOCS_MCP_URL` to `wrangler.toml`."
+      },
+      {
+        "task_name": "Create `mcpClient.ts`",
+        "description": "Build a utility for making standardized calls to other MCP tools (needed by the `agents-md-generator`)."
+      }
+    ]
+  },
+  {
+    "phase": 9,
+    "phase_name": "Multi-Protocol Expansion (WS, RPC, A2A)",
+    "description": "Expose the core logic over WebSocket, RPC, and A2A interfaces.",
+    "tasks": [
+      {
+        "task_name": "Create WebSocket DO",
+        "description": "Implement `src/websocket.ts` using the Hibernatable API. It should parse messages and call the underlying proxy/MCP logic."
+      },
+      {
+        "task_name": "Create RPC Server",
+        "description": "Implement `src/rpc.ts` with an `RpcServer` class that exposes methods like `runProxyRequest` and `runMcpExecute`."
+      },
+      {
+        "task_name": "Create A2A Router",
+        "description": "Implement `src/a2a.ts` as a placeholder for stateful agent collaboration."
+      }
+    ]
+  },
+  {
+    "phase": 10,
+    "phase_name": "CI/CD & Documentation",
+    "description": "Finalize the project with automation and documentation.",
+    "tasks": [
+      {
+        "task_name": "Create GitHub Action",
+        "description": "Build `.github/workflows/generate_agents_md.yml` to call `POST /mcp/agents/generate` on a schedule."
+      },
+      {
+        "task_name": "Generate OpenAPI Spec",
+        "description": "Implement `src/openapi.ts` to generate the `openapi.json` from all Zod schemas."
+      },
+      {
+        "task_name": "Write `README.md`",
+        "description": "Create the main project README with setup instructions, API documentation, and architecture overview."
+      }
+    ]
+  }
+]
