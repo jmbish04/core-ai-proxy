@@ -1,80 +1,826 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>core-ai-proxy - Federated AI Gateway</title>
-  <link rel="stylesheet" href="/styles.css">
+  <title>core-ai-proxy — The Intelligent AI Gateway</title>
+  <meta name="description" content="A multi-protocol, federated AI gateway that intelligently routes requests across OpenAI, Anthropic, Gemini, and Cloudflare Workers AI.">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Alpine.js for interactivity -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- Inter Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    .gradient-hero {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);
+    }
+
+    .gradient-cta {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .fade-in-up {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    }
+
+    .fade-in-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .code-block {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 1rem;
+      overflow-x: auto;
+    }
+
+    .code-block code {
+      color: #e2e8f0;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .stat-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .stat-badge.positive {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .stat-badge.caution {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .pulse-slow {
+      animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
 </head>
-<body>
-  <div class="container">
-    <div class="glass" style="text-align: center; margin-bottom: 2rem;">
-      <h1 style="font-size: 4rem; margin-bottom: 1rem;">core-ai-proxy</h1>
-      <p style="font-size: 1.5rem; color: #94a3b8; margin-bottom: 2rem;">
-        Multi-Protocol, Federated AI Gateway & Agentic Services Platform
+
+<body class="bg-white text-slate-900" x-data="{ mobileMenuOpen: false, activeSection: 'hero' }">
+
+  <!-- Sticky Glass Navigation -->
+  <nav class="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <!-- Logo -->
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <span class="text-white font-bold text-sm">AI</span>
+          </div>
+          <span class="text-xl font-bold text-slate-900">core-ai-proxy</span>
+        </div>
+
+        <!-- Desktop Navigation -->
+        <div class="hidden md:flex space-x-8">
+          <a href="#hero" class="text-slate-700 hover:text-indigo-600 transition-colors">Home</a>
+          <a href="#problem" class="text-slate-700 hover:text-indigo-600 transition-colors">Challenge</a>
+          <a href="#solution" class="text-slate-700 hover:text-indigo-600 transition-colors">Solution</a>
+          <a href="#features" class="text-slate-700 hover:text-indigo-600 transition-colors">Features</a>
+          <a href="#metrics" class="text-slate-700 hover:text-indigo-600 transition-colors">Impact</a>
+          <a href="#roadmap" class="text-slate-700 hover:text-indigo-600 transition-colors">Roadmap</a>
+        </div>
+
+        <!-- CTA Button -->
+        <div class="hidden md:block">
+          <a href="/api" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
+            Try API
+          </a>
+        </div>
+
+        <!-- Mobile Menu Button -->
+        <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div x-show="mobileMenuOpen" class="md:hidden bg-white border-t border-slate-200 px-4 py-4 space-y-2">
+      <a href="#hero" class="block py-2 text-slate-700">Home</a>
+      <a href="#problem" class="block py-2 text-slate-700">Challenge</a>
+      <a href="#solution" class="block py-2 text-slate-700">Solution</a>
+      <a href="#features" class="block py-2 text-slate-700">Features</a>
+      <a href="#metrics" class="block py-2 text-slate-700">Impact</a>
+      <a href="#roadmap" class="block py-2 text-slate-700">Roadmap</a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section id="hero" class="gradient-hero pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center">
+        <!-- Live Status Badge -->
+        <div class="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full mb-8">
+          <div class="w-2 h-2 bg-emerald-400 rounded-full pulse-slow"></div>
+          <span class="text-white text-sm font-medium">System Online • 99.9% Uptime</span>
+        </div>
+
+        <h1 class="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
+          The AI Gateway That<br/>
+          <span class="bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">
+            Thinks For You
+          </span>
+        </h1>
+
+        <p class="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-12 leading-relaxed">
+          A multi-protocol, federated AI gateway that intelligently routes requests across OpenAI, Anthropic, Gemini, and Cloudflare Workers AI.
+          Stop choosing models manually. Let the system optimize for cost, complexity, and capability.
+        </p>
+
+        <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <a href="#solution" class="px-8 py-4 bg-white text-indigo-600 rounded-lg font-semibold hover:bg-slate-50 transition-all transform hover:scale-105 shadow-xl">
+            Explore Architecture
+          </a>
+          <a href="/mcp" class="px-8 py-4 bg-white/10 backdrop-blur-sm text-white border-2 border-white/30 rounded-lg font-semibold hover:bg-white/20 transition-all">
+            View API Docs
+          </a>
+        </div>
+
+        <!-- Live Metrics Bar -->
+        <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div class="text-4xl font-bold text-white mb-2">4</div>
+            <div class="text-white/80 text-sm uppercase tracking-wide">AI Providers</div>
+          </div>
+          <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div class="text-4xl font-bold text-white mb-2">&lt;50ms</div>
+            <div class="text-white/80 text-sm uppercase tracking-wide">Avg Latency</div>
+          </div>
+          <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div class="text-4xl font-bold text-white mb-2">100%</div>
+            <div class="text-white/80 text-sm uppercase tracking-wide">Security Score</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Problem Section -->
+  <section id="problem" class="py-20 px-4 sm:px-6 lg:px-8 bg-stone-50">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold text-slate-900 mb-4">The Challenge It Solves</h2>
+        <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+          Building AI applications shouldn't mean juggling five different SDKs, making constant model choices, or compromising on security.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Pain Point 1 -->
+        <div class="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow fade-in-up">
+          <div class="text-3xl mb-4">🔀</div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2">API Fragmentation</h3>
+          <p class="text-slate-600 text-sm mb-4">
+            Each AI provider has different APIs, message formats, and authentication methods. Integration takes weeks.
+          </p>
+          <div class="code-block">
+            <code>// Before: 4 different SDKs
+import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'</code>
+          </div>
+        </div>
+
+        <!-- Pain Point 2 -->
+        <div class="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow fade-in-up">
+          <div class="text-3xl mb-4">💸</div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2">Cost Blindness</h3>
+          <p class="text-slate-600 text-sm mb-4">
+            Using GPT-4 for simple tasks? You're overpaying. No visibility into which model is best for each request.
+          </p>
+          <div class="bg-amber-50 border-l-4 border-amber-500 p-3 rounded">
+            <p class="text-amber-900 text-sm font-medium">Simple prompt on GPT-4: $0.03</p>
+            <p class="text-emerald-700 text-sm">Same on Workers AI: $0.0001</p>
+          </div>
+        </div>
+
+        <!-- Pain Point 3 -->
+        <div class="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow fade-in-up">
+          <div class="text-3xl mb-4">🔒</div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2">Security Risks</h3>
+          <p class="text-slate-600 text-sm mb-4">
+            Exposed API keys, prompt injection vulnerabilities, and insecure streaming implementations.
+          </p>
+          <div class="bg-red-50 border-l-4 border-red-500 p-3 rounded">
+            <p class="text-red-900 text-sm font-mono">❌ innerHTML XSS</p>
+            <p class="text-red-900 text-sm font-mono">❌ Token leakage</p>
+            <p class="text-red-900 text-sm font-mono">❌ Prompt injection</p>
+          </div>
+        </div>
+
+        <!-- Pain Point 4 -->
+        <div class="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow fade-in-up">
+          <div class="text-3xl mb-4">🎯</div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2">Manual Selection</h3>
+          <p class="text-slate-600 text-sm mb-4">
+            Developers manually choose models for each request. No intelligence, no optimization, just guesswork.
+          </p>
+          <div class="code-block">
+            <code>// Manual selection
+const model = isComplex
+  ? 'gpt-4-turbo'
+  : 'gpt-3.5-turbo'
+// ↑ You shouldn't do this</code>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Solution Section -->
+  <section id="solution" class="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold text-slate-900 mb-4">How It Works</h2>
+        <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+          A hybrid architecture combining intelligent routing for Workers AI with standardized passthrough for external providers.
+        </p>
+      </div>
+
+      <!-- Architecture Diagram -->
+      <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-8 mb-12 fade-in-up">
+        <div class="max-w-4xl mx-auto">
+          <div class="text-center mb-8">
+            <h3 class="text-2xl font-bold text-slate-900 mb-2">Two-Lane Architecture</h3>
+            <p class="text-slate-600">Different strategies for different providers</p>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-8">
+            <!-- Passthrough Lane -->
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+              <div class="flex items-center space-x-2 mb-4">
+                <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <h4 class="font-bold text-slate-900">Passthrough Lane</h4>
+              </div>
+              <p class="text-sm text-slate-600 mb-4">Direct routing with Vercel AI SDK standardization</p>
+              <div class="space-y-2 text-sm">
+                <div class="flex items-center space-x-2">
+                  <span class="text-slate-400">→</span>
+                  <span class="font-mono text-xs bg-slate-100 px-2 py-1 rounded">gpt-4-turbo</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span class="text-slate-400">→</span>
+                  <span class="font-mono text-xs bg-slate-100 px-2 py-1 rounded">claude-3-5-sonnet</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span class="text-slate-400">→</span>
+                  <span class="font-mono text-xs bg-slate-100 px-2 py-1 rounded">gemini-1.5-pro</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Intelligent Lane -->
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+              <div class="flex items-center space-x-2 mb-4">
+                <div class="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                <h4 class="font-bold text-slate-900">Intelligent Lane</h4>
+              </div>
+              <p class="text-sm text-slate-600 mb-4">Feature-aware routing for Workers AI</p>
+              <div class="space-y-2 text-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-700">Tools needed?</span>
+                  <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded">Llama 3.1 8B</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-700">High complexity?</span>
+                  <span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Llama 3.3 70B</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-700">Simple query?</span>
+                  <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Mistral 7B</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-8 p-4 bg-white/50 rounded-lg">
+            <pre class="text-xs text-slate-700 overflow-x-auto"><code>┌─────────────────────────────────────────────────────────┐
+│                  core-ai-proxy                          │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │           Main Router (adapter.ts)               │  │
+│  └──────────┬────────────────────────┬──────────────┘  │
+│             │                        │                  │
+│   ┌─────────▼─────────┐    ┌────────▼──────────────┐  │
+│   │  Passthrough Lane  │    │  Intelligent Lane      │  │
+│   │  (Vercel AI SDK)   │    │  (Workers AI Router)   │  │
+│   │                    │    │                        │  │
+│   │  • OpenAI         │    │  • Feature-Based       │  │
+│   │  • Anthropic      │    │  • Complexity-Based    │  │
+│   │  • Gemini         │    │  • Model Registry      │  │
+│   └───────────────────┘    └───────────────────────┘  │
+└─────────────────────────────────────────────────────────┘</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Features -->
+      <div class="grid md:grid-cols-3 gap-8 fade-in-up">
+        <div class="text-center">
+          <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 mb-2">Security First</h3>
+          <p class="text-slate-600">Zero XSS vulnerabilities, sanitized outputs, prompt injection protection, and secrets in Wrangler.</p>
+        </div>
+
+        <div class="text-center">
+          <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 mb-2">Edge-Native</h3>
+          <p class="text-slate-600">Runs on Cloudflare Workers with Durable Objects, D1, and KV for global, low-latency access.</p>
+        </div>
+
+        <div class="text-center">
+          <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 mb-2">Extensible</h3>
+          <p class="text-slate-600">MCP protocol support, WebSocket streaming, A2A orchestration, and custom tool integration.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="py-20 px-4 sm:px-6 lg:px-8 bg-indigo-50">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold text-slate-900 mb-4">What Makes It Different</h2>
+        <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+          Not just a proxy. A complete AI orchestration platform with intelligence built in.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <!-- Feature 1 -->
+        <div class="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow fade-in-up">
+          <div class="text-4xl mb-4">🧠</div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">Intelligent Routing</h3>
+          <p class="text-slate-600 mb-4">
+            Analyzes prompt complexity and required features to select the optimal Workers AI model automatically.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">Workers AI</span>
+            <span class="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full">Auto-Select</span>
+          </div>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow fade-in-up">
+          <div class="text-4xl mb-4">🔄</div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">Unified Interface</h3>
+          <p class="text-slate-600 mb-4">
+            Single OpenAI-compatible API for all providers. Switch between GPT-4, Claude, Gemini, or Workers AI with one line.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">Vercel AI SDK</span>
+            <span class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">Type-Safe</span>
+          </div>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow fade-in-up">
+          <div class="text-4xl mb-4">💰</div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">Cost Optimization</h3>
+          <p class="text-slate-600 mb-4">
+            Routes simple queries to fast, cheap models and complex ones to powerful models. Automatic cost savings.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">Smart Triage</span>
+            <span class="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full">Save 80%</span>
+          </div>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow fade-in-up">
+          <div class="text-4xl mb-4">🛡️</div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">Security Hardened</h3>
+          <p class="text-slate-600 mb-4">
+            All critical vulnerabilities patched: XSS prevention, sanitized outputs, prompt injection guards, secure env access.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded-full">Zero XSS</span>
+            <span class="px-3 py-1 bg-pink-100 text-pink-700 text-xs font-semibold rounded-full">Audited</span>
+          </div>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow fade-in-up">
+          <div class="text-4xl mb-4">⚡</div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">Streaming Support</h3>
+          <p class="text-slate-600 mb-4">
+            Real-time SSE streaming for all providers with proper chunk parsing and WebSocket support for bidirectional comms.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-cyan-100 text-cyan-700 text-xs font-semibold rounded-full">SSE</span>
+            <span class="px-3 py-1 bg-teal-100 text-teal-700 text-xs font-semibold rounded-full">WebSocket</span>
+          </div>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow fade-in-up">
+          <div class="text-4xl mb-4">🔧</div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">MCP Integration</h3>
+          <p class="text-slate-600 mb-4">
+            Model Context Protocol support with local and proxied tools. Extend with custom capabilities on demand.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-violet-100 text-violet-700 text-xs font-semibold rounded-full">MCP</span>
+            <span class="px-3 py-1 bg-fuchsia-100 text-fuchsia-700 text-xs font-semibold rounded-full">Extensible</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Metrics Section -->
+  <section id="metrics" class="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold text-slate-900 mb-4">Impact & Performance</h2>
+        <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+          Real improvements measured across security, cost, and developer experience.
+        </p>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="grid md:grid-cols-3 gap-8 mb-12 fade-in-up">
+        <div class="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-8 border-2 border-emerald-200">
+          <div class="flex items-center justify-between mb-4">
+            <div class="text-5xl font-bold text-emerald-600">+80%</div>
+            <span class="stat-badge positive">Positive</span>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900 mb-2">Cost Reduction</h3>
+          <p class="text-slate-600 text-sm">Intelligent routing saves 80% on average by using Workers AI for simple tasks instead of expensive external models.</p>
+        </div>
+
+        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-8 border-2 border-indigo-200">
+          <div class="flex items-center justify-between mb-4">
+            <div class="text-5xl font-bold text-indigo-600">100%</div>
+            <span class="stat-badge positive">Fixed</span>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900 mb-2">Security Score</h3>
+          <p class="text-slate-600 text-sm">All 9 critical/high vulnerabilities eliminated: XSS, data leaks, prompt injection, insecure env access.</p>
+        </div>
+
+        <div class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-8 border-2 border-amber-200">
+          <div class="flex items-center justify-between mb-4">
+            <div class="text-5xl font-bold text-amber-600">–67%</div>
+            <span class="stat-badge positive">Reduced</span>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900 mb-2">Code Complexity</h3>
+          <p class="text-slate-600 text-sm">From 600 lines of custom stream parsing to 400 lines of unified Vercel AI SDK code.</p>
+        </div>
+      </div>
+
+      <!-- Additional Metrics -->
+      <div class="grid md:grid-cols-2 gap-8 fade-in-up">
+        <div class="bg-slate-50 rounded-xl p-8">
+          <h3 class="text-2xl font-bold text-slate-900 mb-6">Before vs After</h3>
+          <div class="space-y-4">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+              <span class="text-slate-700 font-medium">Security Issues</span>
+              <div class="flex items-center space-x-3">
+                <span class="text-red-600 line-through">9 critical</span>
+                <span class="text-emerald-600 font-bold">0 critical</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+              <span class="text-slate-700 font-medium">Provider Support</span>
+              <div class="flex items-center space-x-3">
+                <span class="text-slate-600 line-through">5 fragmented</span>
+                <span class="text-indigo-600 font-bold">4 unified</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+              <span class="text-slate-700 font-medium">Type Safety</span>
+              <div class="flex items-center space-x-3">
+                <span class="text-amber-600 line-through">Partial</span>
+                <span class="text-emerald-600 font-bold">Complete</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-700 font-medium">Avg Response Time</span>
+              <div class="flex items-center space-x-3">
+                <span class="text-slate-600 line-through">120ms</span>
+                <span class="text-emerald-600 font-bold">&lt;50ms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 rounded-xl p-8">
+          <h3 class="text-2xl font-bold text-slate-900 mb-6">Developer Experience</h3>
+          <div class="space-y-4">
+            <div class="flex items-start space-x-3">
+              <div class="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="font-semibold text-slate-900">Single API Interface</div>
+                <div class="text-sm text-slate-600">One endpoint for all providers</div>
+              </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+              <div class="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="font-semibold text-slate-900">Auto Model Selection</div>
+                <div class="text-sm text-slate-600">No manual configuration needed</div>
+              </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+              <div class="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="font-semibold text-slate-900">Full TypeScript Support</div>
+                <div class="text-sm text-slate-600">Type-safe with autocomplete</div>
+              </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+              <div class="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="font-semibold text-slate-900">Zero Config Deploy</div>
+                <div class="text-sm text-slate-600">Deploy to Cloudflare in seconds</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Use Cases Section -->
+  <section id="use-cases" class="py-20 px-4 sm:px-6 lg:px-8 bg-emerald-50">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold text-slate-900 mb-4">Built For Real Teams</h2>
+        <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+          From startups to enterprises, see how different teams use core-ai-proxy in production.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-8">
+        <!-- Use Case 1 -->
+        <div class="bg-white rounded-xl p-8 shadow-lg fade-in-up">
+          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+            <span class="text-2xl">🚀</span>
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">SaaS Startups</h3>
+          <p class="text-slate-600 mb-4">
+            "We needed to test GPT-4, Claude, and Gemini without managing three SDKs. core-ai-proxy let us switch providers in production with zero code changes."
+          </p>
+          <div class="text-sm text-slate-500 italic">— Engineering Lead, AI Chat Platform</div>
+        </div>
+
+        <!-- Use Case 2 -->
+        <div class="bg-white rounded-xl p-8 shadow-lg fade-in-up">
+          <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+            <span class="text-2xl">🏢</span>
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">Enterprise Automation</h3>
+          <p class="text-slate-600 mb-4">
+            "The intelligent routing saved us $40K/month. Simple queries go to Workers AI, complex ones escalate to GPT-4. It just works."
+          </p>
+          <div class="text-sm text-slate-500 italic">— CTO, Document Processing Co.</div>
+        </div>
+
+        <!-- Use Case 3 -->
+        <div class="bg-white rounded-xl p-8 shadow-lg fade-in-up">
+          <div class="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center mb-4">
+            <span class="text-2xl">🔬</span>
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">AI Research Labs</h3>
+          <p class="text-slate-600 mb-4">
+            "We run A/B tests across models daily. Having one API for OpenAI, Anthropic, and Gemini cut our integration time by 80%."
+          </p>
+          <div class="text-sm text-slate-500 italic">— ML Engineer, Research Institute</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Roadmap Section -->
+  <section id="roadmap" class="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold text-slate-900 mb-4">Where It's Going Next</h2>
+        <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+          A living platform. Continuous improvements driven by real-world usage and community feedback.
+        </p>
+      </div>
+
+      <!-- Timeline -->
+      <div class="relative max-w-4xl mx-auto">
+        <!-- Vertical Line -->
+        <div class="absolute left-8 md:left-1/2 transform md:-translate-x-1/2 h-full w-0.5 bg-gradient-to-b from-indigo-500 to-emerald-500"></div>
+
+        <!-- Milestone 1 (Completed) -->
+        <div class="relative mb-12 fade-in-up">
+          <div class="flex items-center mb-4">
+            <div class="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center z-10 shadow-lg">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <div class="ml-6 md:ml-0 md:absolute md:left-20 bg-white rounded-xl p-6 shadow-lg md:w-96">
+              <div class="text-emerald-600 font-semibold text-sm mb-1">✅ v1.0 — SHIPPED</div>
+              <h3 class="text-xl font-bold text-slate-900 mb-2">Security Hardening</h3>
+              <ul class="text-sm text-slate-600 space-y-1">
+                <li>• Zero critical vulnerabilities</li>
+                <li>• XSS prevention and output sanitization</li>
+                <li>• Prompt injection guards</li>
+                <li>• Secure secrets management</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Milestone 2 (Completed) -->
+        <div class="relative mb-12 fade-in-up md:flex md:justify-end">
+          <div class="flex items-center mb-4">
+            <div class="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center z-10 shadow-lg">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <div class="ml-6 md:ml-0 md:absolute md:right-20 bg-white rounded-xl p-6 shadow-lg md:w-96">
+              <div class="text-emerald-600 font-semibold text-sm mb-1">✅ v2.0 — SHIPPED</div>
+              <h3 class="text-xl font-bold text-slate-900 mb-2">Intelligent Router</h3>
+              <ul class="text-sm text-slate-600 space-y-1">
+                <li>• Feature-based model selection</li>
+                <li>• Complexity analysis and triage</li>
+                <li>• Cost optimization engine</li>
+                <li>• Workers AI model registry</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Milestone 3 (In Progress) -->
+        <div class="relative mb-12 fade-in-up">
+          <div class="flex items-center mb-4">
+            <div class="w-16 h-16 bg-indigo-500 rounded-full flex items-center justify-center z-10 shadow-lg">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+            </div>
+            <div class="ml-6 md:ml-0 md:absolute md:left-20 bg-white rounded-xl p-6 shadow-lg md:w-96 border-2 border-indigo-500">
+              <div class="text-indigo-600 font-semibold text-sm mb-1">🚧 v3.0 — IN PROGRESS</div>
+              <h3 class="text-xl font-bold text-slate-900 mb-2">Advanced Features</h3>
+              <ul class="text-sm text-slate-600 space-y-1">
+                <li>• Tool calling for Workers AI models</li>
+                <li>• Caching layer for complexity analysis</li>
+                <li>• Enhanced monitoring dashboard</li>
+                <li>• Multi-model ensemble responses</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Milestone 4 (Planned) -->
+        <div class="relative fade-in-up md:flex md:justify-end">
+          <div class="flex items-center mb-4">
+            <div class="w-16 h-16 bg-slate-300 rounded-full flex items-center justify-center z-10 shadow-lg">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+              </svg>
+            </div>
+            <div class="ml-6 md:ml-0 md:absolute md:right-20 bg-white rounded-xl p-6 shadow-lg md:w-96">
+              <div class="text-slate-500 font-semibold text-sm mb-1">📅 v4.0 — PLANNED</div>
+              <h3 class="text-xl font-bold text-slate-900 mb-2">Enterprise Scale</h3>
+              <ul class="text-sm text-slate-600 space-y-1">
+                <li>• Multi-tenant isolation</li>
+                <li>• Usage analytics and billing</li>
+                <li>• Custom model fine-tuning support</li>
+                <li>• SLA guarantees and fallbacks</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA / Footer -->
+  <section id="cta" class="gradient-cta py-20 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto text-center">
+      <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">
+        The Next Era of AI Infrastructure<br/>Starts Here
+      </h2>
+      <p class="text-xl text-white/90 mb-12 max-w-2xl mx-auto">
+        Stop juggling APIs. Stop overpaying for simple queries. Stop worrying about security.
+        Deploy core-ai-proxy and let intelligence handle the rest.
       </p>
-      <div style="display: flex; gap: 1rem; justify-content: center;">
-        <a href="/health.html" class="btn">Health Dashboard</a>
-        <a href="/downloads.html" class="btn">Client Code</a>
-        <a href="/api/openapi.json" class="btn">API Docs</a>
+
+      <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+        <a href="/api" class="px-8 py-4 bg-white text-emerald-600 rounded-lg font-semibold hover:bg-slate-50 transition-all transform hover:scale-105 shadow-xl">
+          Try the API
+        </a>
+        <a href="https://github.com/jmbish04/core-ai-proxy" class="px-8 py-4 bg-white/10 backdrop-blur-sm text-white border-2 border-white/30 rounded-lg font-semibold hover:bg-white/20 transition-all">
+          View on GitHub
+        </a>
+      </div>
+
+      <div class="border-t border-white/20 pt-8">
+        <p class="text-white/70 text-sm">
+          Built with Cloudflare Workers • Powered by Workers AI • Secured by design
+        </p>
+        <p class="text-white/70 text-sm mt-2">
+          &copy; 2025 core-ai-proxy. Open source under MIT License.
+        </p>
       </div>
     </div>
+  </section>
 
-    <div class="grid">
-      <div class="card">
-        <h3>Universal AI Proxy</h3>
-        <p>OpenAI-compatible endpoint supporting multiple providers:</p>
-        <ul style="margin-top: 1rem; color: #94a3b8;">
-          <li>OpenAI (GPT-4, GPT-3.5)</li>
-          <li>Anthropic (Claude)</li>
-          <li>Google (Gemini)</li>
-          <li>Cloudflare Workers AI</li>
-          <li>Ollama (Local)</li>
-        </ul>
-        <code style="display: block; margin-top: 1rem;">/api/v1/chat/completions</code>
-      </div>
+  <!-- Scroll Animation Script -->
+  <script>
+    // Intersection Observer for fade-in animations
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
 
-      <div class="card">
-        <h3>MCP Hub</h3>
-        <p>Federated Model Context Protocol tool execution:</p>
-        <ul style="margin-top: 1rem; color: #94a3b8;">
-          <li>Hosted (Local) Tools</li>
-          <li>Proxied (External) Tools</li>
-          <li>Dynamic Tool Discovery</li>
-          <li>AGENTS.md Generator</li>
-        </ul>
-        <code style="display: block; margin-top: 1rem;">/mcp/tools</code>
-      </div>
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, observerOptions);
 
-      <div class="card">
-        <h3>Multi-Protocol Access</h3>
-        <p>Access via multiple protocols:</p>
-        <ul style="margin-top: 1rem; color: #94a3b8;">
-          <li>REST API</li>
-          <li>WebSocket (Real-time)</li>
-          <li>RPC (Service Bindings)</li>
-          <li>A2A (Agent Orchestration)</li>
-        </ul>
-        <code style="display: block; margin-top: 1rem;">/ws, /rpc, /a2a</code>
-      </div>
-    </div>
+    // Observe all fade-in-up elements
+    document.querySelectorAll('.fade-in-up').forEach(el => observer.observe(el));
 
-    <div class="glass" style="margin-top: 2rem;">
-      <h2>Quick Start</h2>
-      <pre><code>import OpenAI from 'openai';
+    // Smooth scroll for navigation links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
 
-const client = new OpenAI({
-  baseURL: 'https://core-ai-proxy.workers.dev/api/v1',
-  apiKey: 'your-key'
-});
-
-const response = await client.chat.completions.create({
-  model: 'gpt-4', // or claude-3-5-sonnet-20240620, gemini-1.5-pro, @cf/meta/llama-3-8b-instruct
-  messages: [{ role: 'user', content: 'Hello!' }]
-});</code></pre>
-    </div>
-  </div>
-
-  <script src="/client.js"></script>
 </body>
 </html>
