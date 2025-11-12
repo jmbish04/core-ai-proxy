@@ -1,102 +1,135 @@
-// src/proxy/handlers/anthropic.ts
-// Anthropic handler with normalization to OpenAI format
+/**
+ * Anthropic Handler - Standardized with Vercel AI SDK
+ *
+ * This handler uses the Vercel AI SDK for type-safe, standardized
+ * interaction with Anthropic Claude models. The SDK handles:
+ * - Automatic message format conversion
+ * - System message extraction
+ * - Streaming with proper SSE formatting
+ * - Token counting and usage tracking
+ *
+ * @module proxy/handlers/anthropic
+ */
 
-import Anthropic from '@anthropic-ai/sdk';
-import type { ChatCompletionRequest, ChatCompletionResponse, Message, Env } from '../../types';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { streamText, generateText } from 'ai';
+import type { ChatCompletionRequest, ChatCompletionResponse, Env } from '../../types';
 
+/**
+ * Convert our internal message format to Vercel AI SDK format
+ * System messages are handled separately by the SDK
+ */
+function convertMessages(messages: ChatCompletionRequest['messages']) {
+  return messages
+    .filter(msg => msg.role !== 'system')
+    .map(msg => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content || '',
+    }));
+}
+
+/**
+ * Extract system message from messages array
+ */
+function extractSystemMessage(messages: ChatCompletionRequest['messages']): string | undefined {
+  const systemMsg = messages.find(msg => msg.role === 'system');
+  return systemMsg?.content || undefined;
+}
+
+/**
+ * Convert Vercel AI SDK stream to OpenAI-compatible SSE format
+ */
+async function createSSEStream(textStream: any, modelName: string): Promise<ReadableStream> {
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of textStream) {
+          const openaiChunk = {
+            id: `chatcmpl-${crypto.randomUUID()}`,
+            object: 'chat.completion.chunk',
+            created: Math.floor(Date.now() / 1000),
+            model: modelName,
+            choices: [
+              {
+                index: 0,
+                delta: { content: chunk.delta },
+                finish_reason: null,
+              },
+            ],
+          };
+
+          controller.enqueue(
+            new TextEncoder().encode(`data: ${JSON.stringify(openaiChunk)}\n\n`)
+          );
+        }
+
+        // Send final chunk
+        const finalChunk = {
+          id: `chatcmpl-${crypto.randomUUID()}`,
+          object: 'chat.completion.chunk',
+          created: Math.floor(Date.now() / 1000),
+          model: modelName,
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              finish_reason: 'stop',
+            },
+          ],
+        };
+
+        controller.enqueue(
+          new TextEncoder().encode(`data: ${JSON.stringify(finalChunk)}\n\n`)
+        );
+        controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+        controller.close();
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+  });
+}
+
+/**
+ * Main handler for Anthropic requests
+ */
 export async function handleRequest(
   request: ChatCompletionRequest,
   env: Env,
   stream: boolean
 ): Promise<ChatCompletionResponse | ReadableStream> {
-  const client = new Anthropic({
+  // Initialize Anthropic provider with Vercel AI SDK
+  const anthropic = createAnthropic({
     apiKey: env.ANTHROPIC_API_KEY,
   });
 
-  // Extract system message
-  const systemMessage = request.messages.find((msg) => msg.role === 'system')?.content || undefined;
-
-  // Convert messages (exclude system)
-  const messages = request.messages
-    .filter((msg) => msg.role !== 'system')
-    .map((msg) => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content || '',
-    }));
+  const messages = convertMessages(request.messages);
+  const system = extractSystemMessage(request.messages);
 
   if (stream) {
-    const streamResponse = await client.messages.create({
-      model: request.model,
+    // Use Vercel AI SDK's streamText for streaming
+    const result = await streamText({
+      model: anthropic(request.model),
       messages,
-      system: systemMessage,
-      max_tokens: request.max_tokens || 1024,
+      system,
       temperature: request.temperature,
-      stream: true,
+      maxTokens: request.max_tokens || 1024,
     });
 
-    return new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const event of streamResponse) {
-            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-              const openaiChunk = {
-                id: `chatcmpl-${crypto.randomUUID()}`,
-                object: 'chat.completion.chunk',
-                created: Math.floor(Date.now() / 1000),
-                model: request.model,
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: event.delta.text },
-                    finish_reason: null,
-                  },
-                ],
-              };
-
-              const sseData = `data: ${JSON.stringify(openaiChunk)}\n\n`;
-              controller.enqueue(new TextEncoder().encode(sseData));
-            }
-
-            if (event.type === 'message_stop') {
-              const finalChunk = {
-                id: `chatcmpl-${crypto.randomUUID()}`,
-                object: 'chat.completion.chunk',
-                created: Math.floor(Date.now() / 1000),
-                model: request.model,
-                choices: [
-                  {
-                    index: 0,
-                    delta: {},
-                    finish_reason: 'stop',
-                  },
-                ],
-              };
-
-              controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(finalChunk)}\n\n`));
-              controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-              controller.close();
-            }
-          }
-        } catch (error) {
-          controller.error(error);
-        }
-      },
-    });
+    // Convert to OpenAI-compatible SSE format
+    return createSSEStream(result.textStream, request.model);
   }
 
-  // Non-streaming response
-  const response = await client.messages.create({
-    model: request.model,
+  // Use Vercel AI SDK's generateText for non-streaming
+  const result = await generateText({
+    model: anthropic(request.model),
     messages,
-    system: systemMessage,
-    max_tokens: request.max_tokens || 1024,
+    system,
     temperature: request.temperature,
-    stream: false,
+    maxTokens: request.max_tokens || 1024,
   });
 
-  const content = response.content[0];
-  const text = content?.type === 'text' ? content.text : '';
-
+  // Convert to OpenAI format
   return {
     id: `chatcmpl-${crypto.randomUUID()}`,
     object: 'chat.completion',
@@ -107,15 +140,15 @@ export async function handleRequest(
         index: 0,
         message: {
           role: 'assistant',
-          content: text,
+          content: result.text,
         },
-        finish_reason: response.stop_reason === 'end_turn' ? 'stop' : 'length',
+        finish_reason: result.finishReason === 'stop' ? 'stop' : 'length',
       },
     ],
     usage: {
-      prompt_tokens: response.usage.input_tokens,
-      completion_tokens: response.usage.output_tokens,
-      total_tokens: response.usage.input_tokens + response.usage.output_tokens,
+      prompt_tokens: result.usage.promptTokens,
+      completion_tokens: result.usage.completionTokens,
+      total_tokens: result.usage.totalTokens,
     },
   };
 }
