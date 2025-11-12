@@ -92,9 +92,9 @@ export async function handleRequest(
       },
     ],
     usage: {
-      prompt_tokens: 0, // Gemini doesn't provide token counts
-      completion_tokens: 0,
-      total_tokens: 0,
+      prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
+      completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
+      total_tokens: response.usageMetadata?.totalTokenCount || 0,
     },
   };
 }
