@@ -10,9 +10,16 @@ export async function handleRequest(
   stream: boolean
 ): Promise<ChatCompletionResponse | ReadableStream> {
   const genAI = new GoogleGenerativeAI(env.GOOGLE_API_KEY);
-  const model = genAI.getGenerativeModel({ model: request.model });
 
-  // Convert OpenAI messages to Gemini format
+  // SECURITY FIX: Extract system message for proper handling
+  const systemMessage = request.messages.find((msg) => msg.role === 'system')?.content;
+
+  const model = genAI.getGenerativeModel({
+    model: request.model,
+    systemInstruction: systemMessage || undefined, // Pass system instruction to model
+  });
+
+  // Convert OpenAI messages to Gemini format (excluding system messages)
   const contents = convertMessagesToGemini(request.messages);
 
   if (stream) {
@@ -28,7 +35,7 @@ export async function handleRequest(
 
             // Convert to OpenAI SSE format
             const openaiChunk = {
-              id: `chatcmpl-${Date.now()}`,
+              id: `chatcmpl-${crypto.randomUUID()}`,
               object: 'chat.completion.chunk',
               created: Math.floor(Date.now() / 1000),
               model: request.model,
@@ -47,7 +54,7 @@ export async function handleRequest(
 
           // Final chunk
           const finalChunk = {
-            id: `chatcmpl-${Date.now()}`,
+            id: `chatcmpl-${crypto.randomUUID()}`,
             object: 'chat.completion.chunk',
             created: Math.floor(Date.now() / 1000),
             model: request.model,
@@ -77,7 +84,7 @@ export async function handleRequest(
 
   // Convert to OpenAI format
   return {
-    id: `chatcmpl-${Date.now()}`,
+    id: `chatcmpl-${crypto.randomUUID()}`,
     object: 'chat.completion',
     created: Math.floor(Date.now() / 1000),
     model: request.model,

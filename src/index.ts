@@ -57,9 +57,9 @@ export default {
   /**
    * Scheduled handler for cron triggers
    */
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     // Run health tests on schedule
-    const baseUrl = 'https://core-ai-proxy.workers.dev'; // Update with actual URL
+    const baseUrl = env.BASE_URL || 'https://core-ai-proxy.workers.dev';
     ctx.waitUntil(runAllTests(env, baseUrl));
   },
 
@@ -74,15 +74,29 @@ export default {
     const method = url.pathname.slice(1); // Remove leading slash
 
     if (method === 'runProxyRequest') {
-      const body = await request.json();
+      const body = (await request.json()) as any;
       const result = await rpcServer.runProxyRequest(body);
+
+      // SECURITY FIX: Handle streaming responses properly
+      // Check if result is a ReadableStream (streaming response)
+      if (result instanceof ReadableStream) {
+        return new Response(result, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        });
+      }
+
+      // Non-streaming response
       return new Response(JSON.stringify(result), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
     if (method === 'runMcpExecute') {
-      const { tool, params } = await request.json();
+      const { tool, params } = (await request.json()) as any;
       const result = await rpcServer.runMcpExecute(tool, params);
       return new Response(JSON.stringify(result), {
         headers: { 'Content-Type': 'application/json' },

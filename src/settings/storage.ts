@@ -54,6 +54,35 @@ export const UserSettingsSchema = z.object({
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
 
 /**
+ * Public-safe version of UserSettings that excludes sensitive fields
+ * This should be used for all API responses to prevent data leaks
+ */
+export type PublicUserSettings = Omit<UserSettings, 'githubToken'>;
+
+/**
+ * Sanitize user settings for safe API responses
+ *
+ * Removes sensitive fields (like githubToken) that should never be
+ * sent to the client to prevent credential leakage.
+ *
+ * @param settings - Full UserSettings object from storage
+ * @returns Sanitized settings safe for client transmission
+ *
+ * @example
+ * ```typescript
+ * const settings = await getUserSettings('user123', env);
+ * const safeSettings = sanitizeSettings(settings);
+ * return Response.json(safeSettings); // githubToken excluded
+ * ```
+ */
+export function sanitizeSettings(settings: UserSettings | null): PublicUserSettings | null {
+  if (!settings) return null;
+
+  const { githubToken, ...safeSettings } = settings;
+  return safeSettings;
+}
+
+/**
  * Retrieve user settings from KV storage
  *
  * Fetches settings for a specific user and validates them against the schema.

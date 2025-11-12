@@ -40,7 +40,7 @@ export async function handleRequest(
           for await (const event of streamResponse) {
             if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
               const openaiChunk = {
-                id: `chatcmpl-${Date.now()}`,
+                id: `chatcmpl-${crypto.randomUUID()}`,
                 object: 'chat.completion.chunk',
                 created: Math.floor(Date.now() / 1000),
                 model: request.model,
@@ -59,7 +59,7 @@ export async function handleRequest(
 
             if (event.type === 'message_stop') {
               const finalChunk = {
-                id: `chatcmpl-${Date.now()}`,
+                id: `chatcmpl-${crypto.randomUUID()}`,
                 object: 'chat.completion.chunk',
                 created: Math.floor(Date.now() / 1000),
                 model: request.model,
@@ -98,7 +98,7 @@ export async function handleRequest(
   const text = content?.type === 'text' ? content.text : '';
 
   return {
-    id: `chatcmpl-${Date.now()}`,
+    id: `chatcmpl-${crypto.randomUUID()}`,
     object: 'chat.completion',
     created: Math.floor(Date.now() / 1000),
     model: request.model,

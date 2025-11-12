@@ -1,187 +1,484 @@
-// src/proxy/handlers/workers-ai.ts
-// Critical adapter for Cloudflare Workers AI with model-specific normalization
+/**
+ * Intelligent Workers AI Router
+ *
+ * This handler implements a sophisticated routing system for Cloudflare Workers AI:
+ * 1. Specific Model Routing: Direct requests with specific models
+ * 2. Feature-Based Routing: Routes based on required capabilities (tools, JSON)
+ * 3. Complexity-Based Routing: Triages simple vs complex prompts
+ *
+ * @module proxy/handlers/workers-ai
+ */
 
 import type { ChatCompletionRequest, ChatCompletionResponse, Message, Env } from '../../types';
-import { generateText, generateTextStream } from '../../utils/ai';
+import { generateText } from '../../utils/ai';
 
-interface ModelConfig {
-  inputFormat: 'messages' | 'prompt';
+/**
+ * Model capabilities and configuration
+ */
+interface ModelCapabilities {
+  id: string;
+  name: string;
   supportsTools: boolean;
-  outputKey: string;
+  supportsJSON: boolean;
+  supportsStreaming: boolean;
+  complexity: 'fast' | 'balanced' | 'powerful';
+  contextWindow: number;
 }
 
-const MODEL_CONFIGS: Record<string, ModelConfig> = {
-  '@cf/meta/llama-3-8b-instruct': {
-    inputFormat: 'messages',
-    supportsTools: false,
-    outputKey: 'response',
+/**
+ * Registry of Workers AI models with their capabilities
+ * This is the "magic" - knowing each model's specific capabilities
+ */
+const WORKERS_AI_MODELS: ModelCapabilities[] = [
+  {
+    id: '@cf/meta/llama-3.1-8b-instruct',
+    name: 'Llama 3.1 8B',
+    supportsTools: true,
+    supportsJSON: true,
+    supportsStreaming: true,
+    complexity: 'fast',
+    contextWindow: 8192,
   },
-  '@cf/meta/llama-3.1-8b-instruct': {
-    inputFormat: 'messages',
-    supportsTools: false,
-    outputKey: 'response',
+  {
+    id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    name: 'Llama 3.3 70B',
+    supportsTools: true,
+    supportsJSON: true,
+    supportsStreaming: true,
+    complexity: 'powerful',
+    contextWindow: 16384,
   },
-  '@cf/mistral/mistral-7b-instruct-v0.1': {
-    inputFormat: 'prompt',
+  {
+    id: '@cf/meta/llama-3-8b-instruct',
+    name: 'Llama 3 8B',
     supportsTools: false,
-    outputKey: 'response',
+    supportsJSON: false,
+    supportsStreaming: true,
+    complexity: 'fast',
+    contextWindow: 8192,
   },
-};
+  {
+    id: '@cf/mistral/mistral-7b-instruct-v0.1',
+    name: 'Mistral 7B',
+    supportsTools: false,
+    supportsJSON: false,
+    supportsStreaming: true,
+    complexity: 'fast',
+    contextWindow: 8192,
+  },
+  {
+    id: '@cf/qwen/qwen1.5-14b-chat-awq',
+    name: 'Qwen 1.5 14B',
+    supportsTools: false,
+    supportsJSON: true,
+    supportsStreaming: true,
+    complexity: 'balanced',
+    contextWindow: 8192,
+  },
+];
 
+/**
+ * Get model capabilities by ID
+ */
+function getModelCapabilities(modelId: string): ModelCapabilities | undefined {
+  return WORKERS_AI_MODELS.find(m => m.id === modelId);
+}
+
+/**
+ * Find the best model for specific requirements
+ */
+function findModelForFeatures(requirements: {
+  tools?: boolean;
+  json?: boolean;
+  complexity?: 'fast' | 'balanced' | 'powerful';
+}): ModelCapabilities {
+  // Filter models that meet the requirements
+  let candidates = WORKERS_AI_MODELS.filter(model => {
+    if (requirements.tools && !model.supportsTools) return false;
+    if (requirements.json && !model.supportsJSON) return false;
+    if (requirements.complexity && model.complexity !== requirements.complexity) return false;
+    return true;
+  });
+
+  // If no exact match, relax constraints
+  if (candidates.length === 0) {
+    candidates = WORKERS_AI_MODELS.filter(model => {
+      if (requirements.tools && !model.supportsTools) return false;
+      if (requirements.json && !model.supportsJSON) return false;
+      return true;
+    });
+  }
+
+  // Still no match? Return most capable model
+  if (candidates.length === 0) {
+    return WORKERS_AI_MODELS.find(m => m.complexity === 'powerful') || WORKERS_AI_MODELS[0];
+  }
+
+  // Prefer more powerful models for tools/JSON
+  if (requirements.tools || requirements.json) {
+    return candidates.sort((a, b) => {
+      const complexityOrder = { fast: 0, balanced: 1, powerful: 2 };
+      return complexityOrder[b.complexity] - complexityOrder[a.complexity];
+    })[0];
+  }
+
+  // Default: return first match
+  return candidates[0];
+}
+
+/**
+ * Analyze prompt complexity using a fast triage model
+ */
+async function analyzeComplexity(messages: Message[], env: Env): Promise<'low' | 'high'> {
+  const prompt = messages.map(m => m.content).join('\n');
+
+  const triagePrompt = `Analyze the complexity of this user request. Consider:
+- Does it require advanced reasoning or multi-step logic?
+- Does it involve complex domain knowledge?
+- Is it a simple factual question or basic task?
+
+User request:
+---
+${prompt}
+---
+
+Respond with ONLY: "low" or "high"`;
+
+  try {
+    const result = await generateText(
+      env.AI,
+      '@cf/meta/llama-3.1-8b-instruct',
+      triagePrompt,
+      { max_tokens: 10, temperature: 0.1 }
+    );
+
+    return result.toLowerCase().includes('high') ? 'high' : 'low';
+  } catch (error) {
+    // If triage fails, assume high complexity to be safe
+    console.error('Complexity analysis failed:', error);
+    return 'high';
+  }
+}
+
+/**
+ * Main handler for Workers AI requests
+ */
 export async function handleRequest(
   request: ChatCompletionRequest,
   env: Env,
   stream: boolean
 ): Promise<ChatCompletionResponse | ReadableStream> {
-  const config = MODEL_CONFIGS[request.model] || {
-    inputFormat: 'messages',
-    supportsTools: false,
-    outputKey: 'response',
-  };
+  let selectedModel: ModelCapabilities;
+  let routingReason: string;
 
-  // Convert messages to appropriate format
-  const input = config.inputFormat === 'prompt'
-    ? convertMessagesToPrompt(request.messages)
-    : request.messages;
+  // Step 1: Check if user specified a specific model
+  if (request.model.startsWith('@cf/')) {
+    const modelCaps = getModelCapabilities(request.model);
+    if (!modelCaps) {
+      throw new Error(`Unknown Workers AI model: ${request.model}`);
+    }
+    selectedModel = modelCaps;
+    routingReason = 'User-specified model';
+  } else {
+    // Step 2: Intelligent routing for generic "workers-ai" requests
 
-  if (stream) {
-    const streamResponse = await generateTextStream(
-      env.AI,
-      request.model,
-      input,
-      {
-        max_tokens: request.max_tokens,
-        temperature: request.temperature,
+    // A. Feature-Based Routing (Highest Priority)
+    if (request.tools && request.tools.length > 0) {
+      // User needs tool/function calling
+      selectedModel = findModelForFeatures({ tools: true, complexity: 'powerful' });
+      routingReason = 'Feature-based: Tools required';
+    } else if (request.response_format && (request.response_format as any).type === 'json_object') {
+      // User needs JSON output
+      selectedModel = findModelForFeatures({ json: true });
+      routingReason = 'Feature-based: JSON output required';
+    } else {
+      // B. Complexity-Based Routing (Fallback)
+      const complexity = await analyzeComplexity(request.messages, env);
+
+      if (complexity === 'high') {
+        selectedModel = findModelForFeatures({ complexity: 'powerful' });
+        routingReason = 'Complexity-based: High complexity detected';
+      } else {
+        selectedModel = findModelForFeatures({ complexity: 'fast' });
+        routingReason = 'Complexity-based: Low complexity detected';
       }
-    );
-
-    // Convert Workers AI stream to OpenAI SSE format
-    return new ReadableStream({
-      async start(controller) {
-        const reader = streamResponse.getReader();
-        const decoder = new TextDecoder();
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const text = decoder.decode(value);
-            const openaiChunk = {
-              id: `chatcmpl-${Date.now()}`,
-              object: 'chat.completion.chunk',
-              created: Math.floor(Date.now() / 1000),
-              model: request.model,
-              choices: [
-                {
-                  index: 0,
-                  delta: { content: text },
-                  finish_reason: null,
-                },
-              ],
-            };
-
-            const sseData = `data: ${JSON.stringify(openaiChunk)}\n\n`;
-            controller.enqueue(new TextEncoder().encode(sseData));
-          }
-
-          // Final chunk
-          const finalChunk = {
-            id: `chatcmpl-${Date.now()}`,
-            object: 'chat.completion.chunk',
-            created: Math.floor(Date.now() / 1000),
-            model: request.model,
-            choices: [
-              {
-                index: 0,
-                delta: {},
-                finish_reason: 'stop',
-              },
-            ],
-          };
-
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(finalChunk)}\n\n`));
-          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-          controller.close();
-        } catch (error) {
-          controller.error(error);
-        }
-      },
-    });
+    }
   }
 
-  // Non-streaming response
-  const text = await generateText(env.AI, request.model, input, {
-    max_tokens: request.max_tokens,
-    temperature: request.temperature,
+  console.log(`Workers AI Router: Selected ${selectedModel.name} (${routingReason})`);
+
+  // Step 3: Execute the request with the selected model
+  if (request.tools && request.tools.length > 0) {
+    return handleToolRequest(request, selectedModel, env, stream);
+  }
+
+  if (request.response_format && (request.response_format as any).type === 'json_object') {
+    return handleJSONRequest(request, selectedModel, env);
+  }
+
+  return handleTextRequest(request, selectedModel, env, stream);
+}
+
+/**
+ * Handle tool/function calling requests
+ */
+async function handleToolRequest(
+  request: ChatCompletionRequest,
+  model: ModelCapabilities,
+  env: Env,
+  stream: boolean
+): Promise<ChatCompletionResponse> {
+  if (!model.supportsTools) {
+    throw new Error(`Model ${model.id} does not support tool calling`);
+  }
+
+  // Convert OpenAI tool format to Workers AI format
+  const prompt = buildToolPrompt(request.messages, request.tools || []);
+
+  const result = await generateText(env.AI, model.id, prompt, {
+    max_tokens: request.max_tokens || 2048,
+    temperature: request.temperature || 0.7,
   });
 
-  // Handle tool calls if requested (force structured output)
-  if (request.tools && request.tools.length > 0 && !config.supportsTools) {
-    // For models without native tool support, use JSON extraction
-    return handleToolCallsWithJsonExtraction(request, text, env);
-  }
+  // Parse tool calls from response
+  const toolCalls = extractToolCalls(result);
 
   return {
-    id: `chatcmpl-${Date.now()}`,
+    id: `chatcmpl-${crypto.randomUUID()}`,
     object: 'chat.completion',
     created: Math.floor(Date.now() / 1000),
-    model: request.model,
+    model: model.id,
     choices: [
       {
         index: 0,
         message: {
           role: 'assistant',
-          content: text,
+          content: toolCalls.length > 0 ? null : result,
+          tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+        },
+        finish_reason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
+      },
+    ],
+    usage: {
+      prompt_tokens: estimateTokens(prompt),
+      completion_tokens: estimateTokens(result),
+      total_tokens: estimateTokens(prompt) + estimateTokens(result),
+    },
+  };
+}
+
+/**
+ * Handle JSON output requests
+ */
+async function handleJSONRequest(
+  request: ChatCompletionRequest,
+  model: ModelCapabilities,
+  env: Env
+): Promise<ChatCompletionResponse> {
+  if (!model.supportsJSON) {
+    throw new Error(`Model ${model.id} does not support JSON output`);
+  }
+
+  const prompt = buildJSONPrompt(request.messages);
+
+  const result = await generateText(env.AI, model.id, prompt, {
+    max_tokens: request.max_tokens || 2048,
+    temperature: request.temperature || 0.7,
+  });
+
+  // Clean and validate JSON
+  const jsonResult = cleanJSON(result);
+
+  return {
+    id: `chatcmpl-${crypto.randomUUID()}`,
+    object: 'chat.completion',
+    created: Math.floor(Date.now() / 1000),
+    model: model.id,
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: 'assistant',
+          content: jsonResult,
         },
         finish_reason: 'stop',
       },
     ],
     usage: {
-      prompt_tokens: 0,
-      completion_tokens: 0,
-      total_tokens: 0,
+      prompt_tokens: estimateTokens(prompt),
+      completion_tokens: estimateTokens(result),
+      total_tokens: estimateTokens(prompt) + estimateTokens(result),
     },
   };
 }
 
-function convertMessagesToPrompt(messages: Message[]): string {
+/**
+ * Handle standard text generation requests
+ */
+async function handleTextRequest(
+  request: ChatCompletionRequest,
+  model: ModelCapabilities,
+  env: Env,
+  stream: boolean
+): Promise<ChatCompletionResponse | ReadableStream> {
+  const prompt = buildPrompt(request.messages);
+
+  if (stream && model.supportsStreaming) {
+    // TODO: Implement streaming using Workers AI streaming API
+    // For now, fall back to non-streaming
+    // return createStreamingResponse(request, model, env);
+  }
+
+  const result = await generateText(env.AI, model.id, prompt, {
+    max_tokens: request.max_tokens || 2048,
+    temperature: request.temperature || 0.7,
+  });
+
+  return {
+    id: `chatcmpl-${crypto.randomUUID()}`,
+    object: 'chat.completion',
+    created: Math.floor(Date.now() / 1000),
+    model: model.id,
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: 'assistant',
+          content: result,
+        },
+        finish_reason: 'stop',
+      },
+    ],
+    usage: {
+      prompt_tokens: estimateTokens(prompt),
+      completion_tokens: estimateTokens(result),
+      total_tokens: estimateTokens(prompt) + estimateTokens(result),
+    },
+  };
+}
+
+/**
+ * Build prompt from messages
+ */
+function buildPrompt(messages: Message[]): string {
   return messages
-    .map((msg) => {
-      if (msg.role === 'system') return `System: ${msg.content}`;
-      if (msg.role === 'user') return `User: ${msg.content}`;
-      if (msg.role === 'assistant') return `Assistant: ${msg.content}`;
-      return msg.content || '';
+    .map(msg => {
+      const role = msg.role === 'assistant' ? 'Assistant' : 'User';
+      return `${role}: ${msg.content}`;
     })
     .join('\n\n');
 }
 
-async function handleToolCallsWithJsonExtraction(
-  request: ChatCompletionRequest,
-  text: string,
-  env: Env
-): Promise<ChatCompletionResponse> {
-  // This is a simplified implementation
-  // In a real scenario, you'd re-prompt the model to extract tool calls
-  return {
-    id: `chatcmpl-${Date.now()}`,
-    object: 'chat.completion',
-    created: Math.floor(Date.now() / 1000),
-    model: request.model,
-    choices: [
-      {
-        index: 0,
-        message: {
-          role: 'assistant',
-          content: text,
+/**
+ * Build prompt for tool calling
+ */
+function buildToolPrompt(messages: Message[], tools: any[]): string {
+  const toolsDesc = tools.map(t => `- ${t.function.name}: ${t.function.description}`).join('\n');
+
+  const systemPrompt = `You have access to the following tools:
+${toolsDesc}
+
+To use a tool, respond with JSON in this format:
+{"tool": "tool_name", "arguments": {...}}
+
+If you don't need a tool, respond normally.`;
+
+  const conversationPrompt = messages
+    .map(msg => {
+      const role = msg.role === 'assistant' ? 'Assistant' : 'User';
+      return `${role}: ${msg.content}`;
+    })
+    .join('\n\n');
+
+  return `${systemPrompt}\n\n${conversationPrompt}\n\nAssistant:`;
+}
+
+/**
+ * Build prompt for JSON output
+ */
+function buildJSONPrompt(messages: Message[]): string {
+  const systemPrompt = 'You must respond with valid JSON only. Do not include any text outside the JSON object.';
+
+  const conversationPrompt = messages
+    .map(msg => {
+      const role = msg.role === 'assistant' ? 'Assistant' : 'User';
+      return `${role}: ${msg.content}`;
+    })
+    .join('\n\n');
+
+  return `${systemPrompt}\n\n${conversationPrompt}\n\nAssistant (JSON only):`;
+}
+
+/**
+ * Extract tool calls from LLM response
+ */
+function extractToolCalls(text: string): any[] {
+  try {
+    // Look for JSON objects in the response
+    const jsonMatch = text.match(/\{[^{}]*"tool"[^{}]*\}/);
+    if (!jsonMatch) return [];
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (parsed.tool && parsed.arguments) {
+      return [
+        {
+          id: `call_${crypto.randomUUID()}`,
+          type: 'function',
+          function: {
+            name: parsed.tool,
+            arguments: JSON.stringify(parsed.arguments),
+          },
         },
-        finish_reason: 'stop',
-      },
-    ],
-    usage: {
-      prompt_tokens: 0,
-      completion_tokens: 0,
-      total_tokens: 0,
-    },
-  };
+      ];
+    }
+  } catch {
+    // Not a tool call
+  }
+
+  return [];
+}
+
+/**
+ * Clean and extract JSON from LLM response
+ * SECURITY FIX: More reliable JSON extraction than aggressive regex
+ */
+function cleanJSON(text: string): string {
+  // Find the first { or [ and the last } or ]
+  const firstBrace = text.indexOf('{');
+  const firstBracket = text.indexOf('[');
+  const lastBrace = text.lastIndexOf('}');
+  const lastBracket = text.lastIndexOf(']');
+
+  let start = -1;
+  let end = -1;
+
+  // Determine which delimiter appears first
+  if (firstBrace >= 0 && (firstBracket < 0 || firstBrace < firstBracket)) {
+    start = firstBrace;
+    end = lastBrace + 1;
+  } else if (firstBracket >= 0) {
+    start = firstBracket;
+    end = lastBracket + 1;
+  }
+
+  if (start >= 0 && end > start) {
+    const extracted = text.substring(start, end);
+    try {
+      // Validate it's actually JSON
+      JSON.parse(extracted);
+      return extracted;
+    } catch {
+      // Fall through to return original
+    }
+  }
+
+  return text;
+}
+
+/**
+ * Estimate token count (rough approximation)
+ */
+function estimateTokens(text: string): number {
+  // Rough estimate: 1 token ≈ 4 characters
+  return Math.ceil(text.length / 4);
 }
