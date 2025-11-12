@@ -1,2 +1,44 @@
-!DOCTYPE html
-htmlheadtitleHealth/title/headbodyh1Health Dashboard/h1/body/html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Health Dashboard - core-ai-proxy</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Health Dashboard</h1>
+    <div id="health-status" class="glass" style="margin-bottom: 2rem;">
+      <h2>System Status</h2>
+      <p>Loading...</p>
+    </div>
+    <button class="btn" onclick="runHealthTests()">Run Tests Now</button>
+    <div id="test-results" class="glass" style="margin-top: 2rem;"></div>
+  </div>
+  <script src="/client.js"></script>
+  <script>
+    async function loadHealth() {
+      const health = await fetchHealth();
+      document.getElementById('health-status').innerHTML = `
+        <h2>System Status</h2>
+        <p class="status ${health.status}">${health.status.toUpperCase()}</p>
+        <p>Total: ${health.checks.total} | Passed: ${health.checks.passed} | Failed: ${health.checks.failed}</p>
+      `;
+    }
+    async function runHealthTests() {
+      const result = await runTests();
+      showNotification('Tests started: ' + result.session_id);
+      setTimeout(() => loadResults(result.session_id), 2000);
+    }
+    async function loadResults(sessionId) {
+      const results = await getTestResults(sessionId);
+      document.getElementById('test-results').innerHTML = `
+        <h2>Test Results</h2>
+        ${results.map(r => `<div class="card"><h3>${r.test_definition_id}</h3><p class="status ${r.status}">${r.status}</p></div>`).join('')}
+      `;
+    }
+    loadHealth();
+  </script>
+</body>
+</html>
