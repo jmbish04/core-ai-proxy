@@ -74,7 +74,7 @@ export default {
     const method = url.pathname.slice(1); // Remove leading slash
 
     if (method === 'runProxyRequest') {
-      const body = (await request.json()) as any;
+      const body = (await request.json()) as ChatCompletionRequest;
       const result = await rpcServer.runProxyRequest(body);
 
       // SECURITY FIX: Handle streaming responses properly
