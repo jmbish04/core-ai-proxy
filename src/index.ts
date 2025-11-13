@@ -96,7 +96,7 @@ export default {
     }
 
     if (method === 'runMcpExecute') {
-      const { tool, params } = (await request.json()) as any;
+      const { tool, params } = (await request.json()) as McpExecuteRequest;
       const result = await rpcServer.runMcpExecute(tool, params);
       return new Response(JSON.stringify(result), {
         headers: { 'Content-Type': 'application/json' },
