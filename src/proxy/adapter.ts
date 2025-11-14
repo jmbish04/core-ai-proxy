@@ -6,7 +6,6 @@ import * as openai from './handlers/openai';
 import * as anthropic from './handlers/anthropic';
 import * as gemini from './handlers/gemini';
 import * as workersAi from './handlers/workers-ai';
-import * as ollama from './handlers/ollama';
 
 export async function routeRequest(
   request: ChatCompletionRequest,
@@ -28,15 +27,10 @@ export async function routeRequest(
     return gemini.handleRequest(request, env, stream);
   }
 
-  if (model.startsWith('@cf/')) {
+  if (model.startsWith('@cf/') || model === 'workers-ai') {
     return workersAi.handleRequest(request, env, stream);
   }
 
-  if (model.startsWith('ollama/')) {
-    return ollama.handleRequest(request, env, stream);
-  }
-
-  // Default to OpenAI for unknown models
   throw new Error(`Unsupported model: ${model}`);
 }
 
@@ -44,7 +38,6 @@ export function detectProvider(model: string): string {
   if (model.startsWith('gpt-')) return 'openai';
   if (model.startsWith('claude-')) return 'anthropic';
   if (model.startsWith('gemini-')) return 'google';
-  if (model.startsWith('@cf/')) return 'workers-ai';
-  if (model.startsWith('ollama/')) return 'ollama';
+  if (model.startsWith('@cf/') || model === 'workers-ai') return 'workers-ai';
   return 'unknown';
 }

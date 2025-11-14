@@ -83,6 +83,20 @@ async function executeLocalTool(
 }
 
 /**
+ * Allowed prefixes for MCP proxy environment variables
+ * SECURITY: This whitelist prevents arbitrary env variable access
+ */
+const ALLOWED_MCP_ENV_PREFIXES = ['MCP_', 'CLOUDFLARE_DOCS_MCP_'];
+
+/**
+ * Validate that an environment variable key is safe for MCP proxy usage
+ * SECURITY: Prevents arbitrary environment variable access by enforcing prefix whitelist
+ */
+function isValidMcpEnvKey(key: string): boolean {
+  return ALLOWED_MCP_ENV_PREFIXES.some(prefix => key.startsWith(prefix));
+}
+
+/**
  * Execute a proxied (external) tool
  */
 async function executeProxiedTool(
@@ -94,6 +108,14 @@ async function executeProxiedTool(
     return {
       success: false,
       error: `Tool ${tool.TOOL_NAME} is missing PROXY_URL_ENV_KEY`,
+    };
+  }
+
+  // SECURITY: Validate env key has an allowed prefix to prevent arbitrary env access
+  if (!isValidMcpEnvKey(tool.PROXY_URL_ENV_KEY)) {
+    return {
+      success: false,
+      error: `Invalid PROXY_URL_ENV_KEY: ${tool.PROXY_URL_ENV_KEY}. Must start with one of: ${ALLOWED_MCP_ENV_PREFIXES.join(', ')}`,
     };
   }
 

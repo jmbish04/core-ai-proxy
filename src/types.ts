@@ -15,13 +15,13 @@ export interface Env {
   WEBSOCKET_DO: DurableObjectNamespace;
   SETTINGS_KV: KVNamespace;
 
-  // API Keys
+  // API Keys (stored as secrets)
   OPENAI_API_KEY: string;
   ANTHROPIC_API_KEY: string;
   GOOGLE_API_KEY: string;
 
-  // Provider URLs
-  OLLAMA_BASE_URL?: string;
+  // Configuration URLs
+  BASE_URL?: string;
 
   // Proxied MCP Tool URLs
   CLOUDFLARE_DOCS_MCP_URL?: string;
@@ -83,6 +83,11 @@ export const ChatCompletionRequestSchema = z.object({
     )
     .optional(),
   tool_choice: z.union([z.literal('none'), z.literal('auto'), z.object({})]).optional(),
+  response_format: z
+    .object({
+      type: z.enum(['text', 'json_object']),
+    })
+    .optional(),
 });
 
 export const ChatCompletionResponseSchema = z.object({
