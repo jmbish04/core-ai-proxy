@@ -350,6 +350,7 @@ async function handleJSONRequest(
 
 /**
  * Create streaming response in OpenAI-compatible SSE format
+ * Properly parses Workers AI SSE stream format (data: {...}\n\n)
  */
 async function createStreamingResponse(
   request: ChatCompletionRequest,
@@ -364,48 +365,54 @@ async function createStreamingResponse(
 
   return new ReadableStream({
     async start(controller) {
-      try {
-        const reader = workersAiStream.getReader();
-        const decoder = new TextDecoder();
+      const reader = workersAiStream.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
+      try {
         while (true) {
           const { done, value } = await reader.read();
-
           if (done) break;
 
-          // Decode the chunk from Workers AI
-          const text = decoder.decode(value, { stream: true });
+          // Buffer incoming chunks and process line-by-line
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep any partial line for the next chunk
 
-          // Workers AI streams in chunks, we need to extract the text
-          // The format varies, but typically it's JSON with a 'response' or 'text' field
-          let chunkText = '';
-          try {
-            const parsed = JSON.parse(text);
-            chunkText = parsed.response || parsed.text || '';
-          } catch {
-            // If not JSON, use the raw text
-            chunkText = text;
-          }
+          for (const line of lines) {
+            // Workers AI uses SSE format: data: {...}
+            if (!line.startsWith('data: ')) continue;
 
-          if (chunkText) {
-            // Convert to OpenAI-compatible SSE format
-            const openaiChunk = {
-              id: `chatcmpl-${crypto.randomUUID()}`,
-              object: 'chat.completion.chunk',
-              created: Math.floor(Date.now() / 1000),
-              model: model.id,
-              choices: [
-                {
-                  index: 0,
-                  delta: { content: chunkText },
-                  finish_reason: null,
-                },
-              ],
-            };
+            const jsonStr = line.substring('data: '.length);
+            if (!jsonStr) continue;
 
-            controller.enqueue(
-              new TextEncoder().encode(`data: ${JSON.stringify(openaiChunk)}\n\n`)
-            );
+            try {
+              const workersAiChunk = JSON.parse(jsonStr);
+              const textDelta = workersAiChunk.response;
+
+              if (typeof textDelta === 'string' && textDelta.length > 0) {
+                // Convert to OpenAI-compatible SSE format
+                const openaiChunk = {
+                  id: `chatcmpl-${crypto.randomUUID()}`,
+                  object: 'chat.completion.chunk',
+                  created: Math.floor(Date.now() / 1000),
+                  model: model.id,
+                  choices: [
+                    {
+                      index: 0,
+                      delta: { content: textDelta },
+                      finish_reason: null,
+                    },
+                  ],
+                };
+
+                controller.enqueue(
+                  new TextEncoder().encode(`data: ${JSON.stringify(openaiChunk)}\n\n`)
+                );
+              }
+            } catch (e) {
+              console.error('Failed to parse Workers AI stream chunk:', jsonStr);
+            }
           }
         }
 
@@ -536,14 +543,17 @@ function buildJSONPrompt(messages: Message[]): string {
 
 /**
  * Extract tool calls from LLM response
+ * Uses cleanJSON utility to handle nested JSON and complex arguments
  */
 function extractToolCalls(text: string): any[] {
   try {
-    // Look for JSON objects in the response
-    const jsonMatch = text.match(/\{[^{}]*"tool"[^{}]*\}/);
-    if (!jsonMatch) return [];
+    // Use the JSON cleaning utility to extract a potential JSON object first
+    const jsonText = cleanJSON(text);
+    if (!jsonText) {
+      return [];
+    }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(jsonText);
     if (parsed.tool && parsed.arguments) {
       return [
         {
@@ -557,7 +567,7 @@ function extractToolCalls(text: string): any[] {
       ];
     }
   } catch {
-    // Not a tool call
+    // Not a valid tool call or failed to parse
   }
 
   return [];

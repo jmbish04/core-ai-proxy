@@ -14,6 +14,7 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, generateText } from 'ai';
 import type { ChatCompletionRequest, ChatCompletionResponse, Env } from '../../types';
+import { createSSEStream } from '../utils';
 
 /**
  * Convert our internal message format to Vercel AI SDK format
@@ -23,60 +24,6 @@ function convertMessages(messages: ChatCompletionRequest['messages']) {
     role: msg.role as 'system' | 'user' | 'assistant',
     content: msg.content || '',
   }));
-}
-
-/**
- * Convert Vercel AI SDK stream to OpenAI-compatible SSE format
- */
-async function createSSEStream(textStream: any, modelName: string): Promise<ReadableStream> {
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of textStream) {
-          const openaiChunk = {
-            id: `chatcmpl-${crypto.randomUUID()}`,
-            object: 'chat.completion.chunk',
-            created: Math.floor(Date.now() / 1000),
-            model: modelName,
-            choices: [
-              {
-                index: 0,
-                delta: { content: chunk.delta },
-                finish_reason: null,
-              },
-            ],
-          };
-
-          controller.enqueue(
-            new TextEncoder().encode(`data: ${JSON.stringify(openaiChunk)}\n\n`)
-          );
-        }
-
-        // Send final chunk
-        const finalChunk = {
-          id: `chatcmpl-${crypto.randomUUID()}`,
-          object: 'chat.completion.chunk',
-          created: Math.floor(Date.now() / 1000),
-          model: modelName,
-          choices: [
-            {
-              index: 0,
-              delta: {},
-              finish_reason: 'stop',
-            },
-          ],
-        };
-
-        controller.enqueue(
-          new TextEncoder().encode(`data: ${JSON.stringify(finalChunk)}\n\n`)
-        );
-        controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-        controller.close();
-      } catch (error) {
-        controller.error(error);
-      }
-    },
-  });
 }
 
 /**
