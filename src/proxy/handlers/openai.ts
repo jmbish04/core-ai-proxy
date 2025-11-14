@@ -105,7 +105,7 @@ export async function handleRequest(
     });
 
     // Convert to OpenAI-compatible SSE format
-    return createSSEStream(result.textStream);
+    return createSSEStream(result.textStream, request.model);
   }
 
   // Use Vercel AI SDK's generateText for non-streaming
