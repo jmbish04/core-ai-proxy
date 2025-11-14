@@ -28,7 +28,7 @@ function convertMessages(messages: ChatCompletionRequest['messages']) {
 /**
  * Convert Vercel AI SDK stream to OpenAI-compatible SSE format
  */
-async function createSSEStream(textStream: any): Promise<ReadableStream> {
+async function createSSEStream(textStream: any, modelName: string): Promise<ReadableStream> {
   return new ReadableStream({
     async start(controller) {
       try {
@@ -37,7 +37,7 @@ async function createSSEStream(textStream: any): Promise<ReadableStream> {
             id: `chatcmpl-${crypto.randomUUID()}`,
             object: 'chat.completion.chunk',
             created: Math.floor(Date.now() / 1000),
-            model: chunk.model || 'gpt-4',
+            model: modelName,
             choices: [
               {
                 index: 0,
@@ -57,7 +57,7 @@ async function createSSEStream(textStream: any): Promise<ReadableStream> {
           id: `chatcmpl-${crypto.randomUUID()}`,
           object: 'chat.completion.chunk',
           created: Math.floor(Date.now() / 1000),
-          model: 'gpt-4',
+          model: modelName,
           choices: [
             {
               index: 0,

@@ -10,7 +10,7 @@
  */
 
 import type { ChatCompletionRequest, ChatCompletionResponse, Message, Env } from '../../types';
-import { generateText } from '../../utils/ai';
+import { generateText, generateTextStream } from '../../utils/ai';
 
 /**
  * Model capabilities and configuration
@@ -127,10 +127,36 @@ function findModelForFeatures(requirements: {
 }
 
 /**
- * Analyze prompt complexity using a fast triage model
+ * Generate SHA-256 hash of a string for caching
+ */
+async function hashString(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Analyze prompt complexity using a fast triage model with KV caching
  */
 async function analyzeComplexity(messages: Message[], env: Env): Promise<'low' | 'high'> {
   const prompt = messages.map(m => m.content).join('\n');
+
+  // Generate cache key from prompt hash
+  const promptHash = await hashString(prompt);
+  const cacheKey = `complexity:${promptHash}`;
+
+  // Check cache first
+  try {
+    const cached = await env.SETTINGS_KV.get(cacheKey);
+    if (cached === 'low' || cached === 'high') {
+      console.log(`Complexity cache hit for hash ${promptHash}: ${cached}`);
+      return cached;
+    }
+  } catch (error) {
+    console.error('Cache lookup failed:', error);
+  }
 
   const triagePrompt = `Analyze the complexity of this user request. Consider:
 - Does it require advanced reasoning or multi-step logic?
@@ -152,7 +178,17 @@ Respond with ONLY: "low" or "high"`;
       { max_tokens: 10, temperature: 0.1 }
     );
 
-    return result.toLowerCase().includes('high') ? 'high' : 'low';
+    const complexity = result.toLowerCase().includes('high') ? 'high' : 'low';
+
+    // Store in cache (TTL: 7 days)
+    try {
+      await env.SETTINGS_KV.put(cacheKey, complexity, { expirationTtl: 604800 });
+      console.log(`Cached complexity for hash ${promptHash}: ${complexity}`);
+    } catch (error) {
+      console.error('Cache storage failed:', error);
+    }
+
+    return complexity;
   } catch (error) {
     // If triage fails, assume high complexity to be safe
     console.error('Complexity analysis failed:', error);
@@ -313,6 +349,94 @@ async function handleJSONRequest(
 }
 
 /**
+ * Create streaming response in OpenAI-compatible SSE format
+ */
+async function createStreamingResponse(
+  request: ChatCompletionRequest,
+  model: ModelCapabilities,
+  env: Env,
+  prompt: string
+): Promise<ReadableStream> {
+  const workersAiStream = await generateTextStream(env.AI, model.id, prompt, {
+    max_tokens: request.max_tokens || 2048,
+    temperature: request.temperature || 0.7,
+  });
+
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        const reader = workersAiStream.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) break;
+
+          // Decode the chunk from Workers AI
+          const text = decoder.decode(value, { stream: true });
+
+          // Workers AI streams in chunks, we need to extract the text
+          // The format varies, but typically it's JSON with a 'response' or 'text' field
+          let chunkText = '';
+          try {
+            const parsed = JSON.parse(text);
+            chunkText = parsed.response || parsed.text || '';
+          } catch {
+            // If not JSON, use the raw text
+            chunkText = text;
+          }
+
+          if (chunkText) {
+            // Convert to OpenAI-compatible SSE format
+            const openaiChunk = {
+              id: `chatcmpl-${crypto.randomUUID()}`,
+              object: 'chat.completion.chunk',
+              created: Math.floor(Date.now() / 1000),
+              model: model.id,
+              choices: [
+                {
+                  index: 0,
+                  delta: { content: chunkText },
+                  finish_reason: null,
+                },
+              ],
+            };
+
+            controller.enqueue(
+              new TextEncoder().encode(`data: ${JSON.stringify(openaiChunk)}\n\n`)
+            );
+          }
+        }
+
+        // Send final chunk
+        const finalChunk = {
+          id: `chatcmpl-${crypto.randomUUID()}`,
+          object: 'chat.completion.chunk',
+          created: Math.floor(Date.now() / 1000),
+          model: model.id,
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              finish_reason: 'stop',
+            },
+          ],
+        };
+
+        controller.enqueue(
+          new TextEncoder().encode(`data: ${JSON.stringify(finalChunk)}\n\n`)
+        );
+        controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+        controller.close();
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+  });
+}
+
+/**
  * Handle standard text generation requests
  */
 async function handleTextRequest(
@@ -323,10 +447,11 @@ async function handleTextRequest(
 ): Promise<ChatCompletionResponse | ReadableStream> {
   const prompt = buildPrompt(request.messages);
 
-  if (stream && model.supportsStreaming) {
-    // TODO: Implement streaming using Workers AI streaming API
-    // For now, fall back to non-streaming
-    // return createStreamingResponse(request, model, env);
+  if (stream) {
+    if (!model.supportsStreaming) {
+      throw new Error(`Model ${model.id} does not support streaming. Please use stream: false.`);
+    }
+    return createStreamingResponse(request, model, env, prompt);
   }
 
   const result = await generateText(env.AI, model.id, prompt, {
