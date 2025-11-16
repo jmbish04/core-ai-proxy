@@ -15,7 +15,7 @@
 import { Hono } from 'hono';
 import type { Env } from './types';
 import { routeToTool } from './sandbox/ToolRouter';
-import { getUserSettings, updateUserSettings, parseSettingsUpdate } from './settings/storage';
+import { getUserSettings, updateUserSettings, parseSettingsUpdate, sanitizeSettings } from './settings/storage';
 import { saveSandboxConfig } from './github/integration';
 import { z } from 'zod';
 
@@ -97,7 +97,8 @@ export function createSandboxRouter() {
       return c.json({ error: 'Settings not found' }, 404);
     }
 
-    return c.json(settings);
+    // SECURITY: Sanitize settings to remove sensitive fields (githubToken)
+    return c.json(sanitizeSettings(settings));
   });
 
   /**
@@ -119,7 +120,8 @@ export function createSandboxRouter() {
 
     const settings = await updateUserSettings(userId, updates, c.env);
 
-    return c.json(settings);
+    // SECURITY: Sanitize settings to remove sensitive fields (githubToken)
+    return c.json(sanitizeSettings(settings));
   });
 
   /**
@@ -146,7 +148,8 @@ export function createSandboxRouter() {
 
     const settings = await parseSettingsUpdate(userId, prompt, c.env);
 
-    return c.json(settings);
+    // SECURITY: Sanitize settings to remove sensitive fields (githubToken)
+    return c.json(sanitizeSettings(settings));
   });
 
   /**

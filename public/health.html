@@ -20,24 +20,59 @@
   <script>
     async function loadHealth() {
       const health = await fetchHealth();
-      document.getElementById('health-status').innerHTML = `
-        <h2>System Status</h2>
-        <p class="status ${health.status}">${health.status.toUpperCase()}</p>
-        <p>Total: ${health.checks.total} | Passed: ${health.checks.passed} | Failed: ${health.checks.failed}</p>
-      `;
+      const container = document.getElementById('health-status');
+
+      // SECURITY: Use DOM manipulation instead of innerHTML to prevent XSS
+      container.textContent = ''; // Clear existing content
+
+      const title = document.createElement('h2');
+      title.textContent = 'System Status';
+      container.appendChild(title);
+
+      const statusP = document.createElement('p');
+      statusP.className = 'status ' + health.status;
+      statusP.textContent = health.status.toUpperCase();
+      container.appendChild(statusP);
+
+      const checksP = document.createElement('p');
+      checksP.textContent = `Total: ${health.checks.total} | Passed: ${health.checks.passed} | Failed: ${health.checks.failed}`;
+      container.appendChild(checksP);
     }
+
     async function runHealthTests() {
       const result = await runTests();
       showNotification('Tests started: ' + result.session_id);
       setTimeout(() => loadResults(result.session_id), 2000);
     }
+
     async function loadResults(sessionId) {
       const results = await getTestResults(sessionId);
-      document.getElementById('test-results').innerHTML = `
-        <h2>Test Results</h2>
-        ${results.map(r => `<div class="card"><h3>${r.test_definition_id}</h3><p class="status ${r.status}">${r.status}</p></div>`).join('')}
-      `;
+      const container = document.getElementById('test-results');
+
+      // SECURITY: Use DOM manipulation instead of innerHTML to prevent XSS
+      container.textContent = ''; // Clear existing content
+
+      const title = document.createElement('h2');
+      title.textContent = 'Test Results';
+      container.appendChild(title);
+
+      results.forEach(r => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const h3 = document.createElement('h3');
+        h3.textContent = r.test_definition_id;
+        card.appendChild(h3);
+
+        const statusP = document.createElement('p');
+        statusP.className = 'status ' + r.status;
+        statusP.textContent = r.status;
+        card.appendChild(statusP);
+
+        container.appendChild(card);
+      });
     }
+
     loadHealth();
   </script>
 </body>
