@@ -37,9 +37,6 @@ crons = ["*/15 * * * *"]
 # For development, use .dev.vars file or --var flags
 
 # Placeholder values for development (replace with real keys or use secrets)
-OPENAI_API_KEY = ""
-ANTHROPIC_API_KEY = ""
-GOOGLE_API_KEY = ""
 
 # Base URL for health checks (update with your actual worker URL)
 BASE_URL = "https://core-ai-proxy.workers.dev"
